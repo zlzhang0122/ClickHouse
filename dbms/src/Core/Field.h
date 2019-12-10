@@ -686,11 +686,26 @@ template <> struct Field::EnumToType<Field::Types::Decimal64> { using Type = Dec
 template <> struct Field::EnumToType<Field::Types::Decimal128> { using Type = DecimalField<Decimal128>; };
 template <> struct Field::EnumToType<Field::Types::AggregateFunctionState> { using Type = DecimalField<AggregateFunctionStateData>; };
 
+inline bool isInt64FieldType(Field::Types::Which t)
+{
+    return t == Field::Types::Int64
+        || t == Field::Types::UInt64;
+}
+
+// Field value getter with type checking in debug builds.
 template <typename T>
 T & Field::get()
 {
     using ValueType = std::decay_t<T>;
-    //assert(TypeToEnum<NearestFieldType<ValueType>>::value == which);
+
+#ifndef NDEBUG
+    const Field::Types::Which target_field_type = TypeToEnum<NearestFieldType<ValueType>>::value;
+    const bool target_is_int = isInt64FieldType(target_field_type);
+    const bool source_is_int = isInt64FieldType(which);
+    // Disregard signedness when converting between int64 types.
+    assert((source_is_int && target_is_int) || target_field_type == which);
+#endif
+
     ValueType * MAY_ALIAS ptr = reinterpret_cast<ValueType *>(&storage);
     return *ptr;
 }
